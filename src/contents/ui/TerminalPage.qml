@@ -333,7 +333,13 @@ Kirigami.Page {
             Connections {
                 target: savedCommandsDialog
                 function onClosed() {
-                    root.forceTerminalFocus();
+                    // Don't take focus back if a page was pushed (e.g. "Configure"),
+                    // otherwise the page row scrolls back to the terminal page
+                    Qt.callLater(() => {
+                        if (applicationWindow().pageStack.currentItem === root) {
+                            root.forceTerminalFocus();
+                        }
+                    });
                 }
             }
         }

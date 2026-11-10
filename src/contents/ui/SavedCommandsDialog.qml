@@ -15,6 +15,18 @@ Kirigami.Dialog {
     id: savedCommandsDialog
     
     property var terminal
+
+    // Push the settings page only after the dialog has fully closed: closing a popup
+    // restores focus to the terminal, which makes the page row scroll back to it.
+    property bool openSettingsWhenClosed: false
+    onClosed: {
+        if (openSettingsWhenClosed) {
+            openSettingsWhenClosed = false;
+            applicationWindow().pageStack.push("qrc:/SavedCommandsSettings.qml", {
+                terminal: savedCommandsDialog.terminal
+            });
+        }
+    }
     
     title: i18nc("@title:window", "Saved Commands")
     standardButtons: Kirigami.Dialog.NoButton
@@ -25,7 +37,7 @@ Kirigami.Dialog {
             text: i18n("Configure")
             icon.name: "settings-configure"
             onTriggered: {
-                pageStack.push("qrc:/SavedCommandsSettings.qml");
+                savedCommandsDialog.openSettingsWhenClosed = true;
                 savedCommandsDialog.close();
             }
         }
