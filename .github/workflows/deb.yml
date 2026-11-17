@@ -1,0 +1,49 @@
+name: deb
+
+on:
+  push:
+    branches: [mobile]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deb
+  cancel-in-progress: true
+
+jobs:
+  deb:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Version
+        id: v
+        run: |
+          desc=$(git describe --tags)
+          ver=$(echo "$desc" | sed -E 's/^v//; s/^([0-9.]+)-([0-9]+)-g([0-9a-f]+)$/\1+mobile\2.g\3/; s/^([0-9.]+)$/\1+mobile0/')
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          echo "tag=v$(echo "$ver" | tr '+' '-')" >> "$GITHUB_OUTPUT"
+
+      - name: Build image
+        run: docker build --pull -t build packaging
+
+      - name: Build package
+        run: |
+          docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/src" -w /src build \
+            packaging/make-deb.sh "${{ steps.v.outputs.version }}"
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.v.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" packaging/out/*.deb --clobber
+          else
+            gh release create "$tag" packaging/out/*.deb --target "${{ github.sha }}" --title "$tag" \
+              --notes "Built from ${{ github.sha }} for Debian forky arm64 (Mobian)."
+          fi
